@@ -13,7 +13,7 @@ The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba23
 | `platform/coachz/` | SC7180 DMA layout, startup/poll wiring and the XNU firmware/service integration patch. |
 | `tests/` | Imported protocol and register models. |
 
-The Coachz implementation runs on iPadOS 17.7.10 (21H461). ABM starts, CommCenter exchanges QMI with the modem, the SIM is recognized, and modem firmware appears in About. IPA setup and the QMI initialization handshake complete; modem TX/RX channels start.
+The Coachz implementation runs on iPadOS 17 (21H461). ABM starts, CommCenter exchanges QMI with the modem, the SIM is recognized, and modem firmware appears in About. IPA setup and the QMI initialization handshake complete; modem TX/RX channels start.
 
 The modem's EFS image is empty and it reports no IMEI, including under Linux. CommCenter leaves the SIM disabled. ICCID, network registration and cellular data remain unfinished. The PDP services expose the methods CommCenter expects; `pdp_ip` network-interface delivery and eSIM VINYL are unfinished. Standard QMI services are forwarded; Apple-private QMI services return unsupported. The SAHARA endpoint consumes the Apple boot exchange without loading Apple firmware into the Qualcomm modem.
 
