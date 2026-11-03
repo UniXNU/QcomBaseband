@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/chiba233/Trogdor-ipadOS",
-  "revision": "f1d68c79e163a9a19892fa03c9f9444f1a3b634c",
+  "revision": "22138756a808902080cde6fe341250134f258304",
   "author": "HoshinoYumeka (@chiba233)",
   "license": "BSD-2-Clause",
   "files": [
@@ -22,7 +22,7 @@
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_baseband.cpp",
       "path": "baseband/coachz_baseband.cpp",
-      "sha256": "edd62b09f7dfea3a78ae979ef2f738ea64dae8ea06380ef90cb9db69af89928b"
+      "sha256": "8cbe08984ae5c04bff2eb0e34a86ab39525626246e1e7bb674ca018130d22996"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_channels.h",
