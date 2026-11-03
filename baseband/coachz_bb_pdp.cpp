@@ -3,7 +3,7 @@
 // CommCenter owns WDS and address configuration; this layer never dials or invents addresses.
 #include <sys/socket.h>
 #include <sys/sockio.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <net/if.h>
 #include <net/if_types.h>
 #include <net/kpi_interface.h>
