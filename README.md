@@ -1,21 +1,23 @@
 # QcomBaseband
 
-Qualcomm baseband bridge for XNU and iPadOS, with the SC7180 IPA v4.2 data path.
+Qualcomm baseband bridge for XNU and iOS, with the SC7180 IPA v4.2 data path.
 
-The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `c5f82b5bc5c73ed55b7f756e6392a99af45c78fb`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) maps each imported file to its source path and hash.
+The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `f1d68c79e163a9a19892fa03c9f9444f1a3b634c`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) maps each imported file to its source path and hash.
 
 ## Implementation
 
 | Directory | Contents |
 | --- | --- |
-| `baseband/` | QMUX/QRTR bridge, QMI CTL, SAHARA device endpoint, AppleBaseband methods and IOKit services. |
+| `baseband/` | QMUX/QRTR, QMI CTL, SAHARA, AppleBaseband services, IPA data-port setup, activation indications and eSIM Tape/UIM. |
 | `ipa/` | IPA v4.2 configuration, GSI, command/RX channels, QMI startup handshake and QMAP framing. |
 | `platform/coachz/` | SC7180 DMA layout, startup/poll wiring and the XNU firmware/service integration patch. |
 | `tests/` | Imported protocol and register models. |
 
-The Coachz implementation runs on iPadOS 17 (21H461). ABM starts, CommCenter exchanges QMI with the modem, the SIM is recognized, and modem firmware appears in About. IPA setup and the QMI initialization handshake complete; modem TX/RX channels start.
+The Coachz implementation runs on iOS 17 (21H461). With the device's factory FSG data, About shows IMEI, ICCID and modem firmware. A valid SIM registers on LTE roaming with CS/PS attached. The status bar displays the operator and signal bars after SIM reinsertion; cold-boot SIM state and carrier settings remain open.
 
-The modem's EFS image is empty and it reports no IMEI, including under Linux. CommCenter leaves the SIM disabled. ICCID, network registration and cellular data remain unfinished. The PDP services expose the methods CommCenter expects; `pdp_ip` network-interface delivery and eSIM VINYL are unfinished. Standard QMI services are forwarded; Apple-private QMI services return unsupported. The SAHARA endpoint consumes the Apple boot exchange without loading Apple firmware into the Qualcomm modem.
+The bridge opens the IPA data port through DPM, configures WDA raw IP/QMAPv4, and translates the Apple PCIe endpoint to the modem's embedded endpoint. DPM/WDA setup and WDS/QOS binding succeed on Coachz. Activation indications include service-provisioned and accepted-slot states. `pdp_ip` packet delivery and a working cellular data session remain unfinished; EFS writes currently live in memory until reboot.
+
+The eSIM Tape bridge discovers actual eUICC slots, preserves capability fields in card-status replies and indications, and maps VINYL requests to ISD-R logical-channel APDUs. Legacy GetCsn returns `0x204` so the native driver completes slot initialization. EID/capability requests use TLV `0x01`; Tape result headers are 11 bytes. Challenge, authentication and download preparation share one channel for the owning client. Terminal operations, errors, disconnect or 180 seconds of inactivity close the session and restore the original slot mapping. Recovery queries return an empty record set. The host models pass. On Coachz, eSIM appears in Settings with an incomplete page; profile provisioning remains unverified. Other Apple-private QMI requests return unsupported. SAHARA consumes the Apple boot exchange while the modem runs its Qualcomm firmware.
 
 ## Build
 
@@ -29,6 +31,6 @@ This builds `build/qcom-baseband/libQcomBaseband.a` with the baseband IOKit brid
 
 A board provides modem power/firmware startup, SMEM/SMP2P, GLINK/QRTR transport and rmtfs. It calls the bridge through [QcomBaseband.h](baseband/QcomBaseband.h). See [Coachz integration](platform/coachz/README.md) and the [porting guide](https://unixnu.com/porting/baseband).
 
-Run the imported host models with `python3 scripts/check.py`.
+Run the imported host models with `python3 scripts/check.py`. Test cellular traffic with a SIM that has an active data plan.
 
 Vendor modem firmware, EFS/NV data and Apple `.bbfw` files are external build inputs. Record their source and destination in the device repository's `proprietary-files.txt`.
