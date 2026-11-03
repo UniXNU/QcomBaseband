@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/chiba233/Trogdor-ipadOS",
-  "revision": "a22feb7f759b4ab0dcedcf1837c4c4792bffa518",
+  "revision": "f1d68c79e163a9a19892fa03c9f9444f1a3b634c",
   "author": "HoshinoYumeka (@chiba233)",
   "license": "BSD-2-Clause",
   "files": [
@@ -22,7 +22,7 @@
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_baseband.cpp",
       "path": "baseband/coachz_baseband.cpp",
-      "sha256": "2aa3922aeb1805accc1cd2f392ded18663cd22fc1e000692686a748464afa004"
+      "sha256": "edd62b09f7dfea3a78ae979ef2f738ea64dae8ea06380ef90cb9db69af89928b"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_channels.h",
@@ -42,7 +42,7 @@
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_esim.h",
       "path": "baseband/coachz_bb_esim.h",
-      "sha256": "c4aedf22b85a83806e8cec39ba168f99a653cb25d5b7a73994f101c8779e7b5c"
+      "sha256": "dd49871a8fd92c4aaeb6e147544b4539c9aa670e4ac64eb20b362ff5d236b403"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_qmux.h",
@@ -127,7 +127,7 @@
     {
       "source": "tests/coachz_bb_model_test.c",
       "path": "tests/coachz_bb_model_test.c",
-      "sha256": "5bab34a0b8b456264d586c0f4e8e998cd906eff19a6ffae04dd8cfe059d0c0bb"
+      "sha256": "55c167e61046f99e5aa50958cde848013e55c8fb8ec8262dfce3986d6b4c86a5"
     },
     {
       "source": "tests/coachz_gsi_model_test.c",
