@@ -2,7 +2,7 @@
 
 Qualcomm baseband bridge for XNU and iOS, with the SC7180 IPA v4.2 data path.
 
-The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `f1d68c79e163a9a19892fa03c9f9444f1a3b634c`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) maps each imported file to its source path and hash.
+The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `22138756a808902080cde6fe341250134f258304`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) maps each imported file to its source path and hash.
 
 ## Implementation
 
@@ -13,7 +13,7 @@ The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba23
 | `platform/coachz/` | SC7180 DMA layout, startup/poll wiring and the XNU firmware/service integration patch. |
 | `tests/` | Imported protocol and register models. |
 
-The Coachz implementation runs on iOS 17 (21H461). With the device's factory FSG data, About shows IMEI, ICCID and modem firmware. A valid SIM registers on LTE roaming with CS/PS attached. The status bar displays the operator and signal bars after SIM reinsertion; cold-boot SIM state and carrier settings remain open.
+The Coachz implementation runs on iOS 17 (21H461). With the device's factory FSG data, About shows IMEI, ICCID and modem firmware. A valid SIM registers on LTE roaming with CS/PS attached. The status bar displays the operator and signal bars directly after a cold boot. Each ABM channel buffers up to 1,024 frames; the first 32 drops per channel report queue depth and message headers. Carrier-bundle and APN selection remain incomplete, so CommCenter does not start a data call.
 
 The bridge opens the IPA data port through DPM, configures WDA raw IP/QMAPv4, and translates the Apple PCIe endpoint to the modem's embedded endpoint. DPM/WDA setup and WDS/QOS binding succeed on Coachz. Activation indications include service-provisioned and accepted-slot states. `pdp_ip` packet delivery and a working cellular data session remain unfinished; EFS writes currently live in memory until reboot.
 
