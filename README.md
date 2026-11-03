@@ -17,7 +17,7 @@ The Coachz implementation runs on iPadOS 17 (21H461). With the device's factory 
 
 The bridge opens the IPA data port through DPM, configures WDA raw IP/QMAPv4, and translates the Apple PCIe endpoint to the modem's embedded endpoint. DPM/WDA setup and WDS/QOS binding succeed on Coachz. Activation indications include service-provisioned and accepted-slot states. `pdp_ip` packet delivery and a working cellular data session remain unfinished; EFS writes currently live in memory until reboot.
 
-The eSIM Tape bridge discovers actual eUICC slots, adds UIM capability fields, maps VINYL requests to ISD-R logical-channel APDUs, and restores the original slot mapping. Host models cover segmentation, timeouts and restoration. Device eSIM provisioning remains unverified. Other Apple-private QMI requests return unsupported. SAHARA consumes the Apple boot exchange while the modem runs its Qualcomm firmware.
+The eSIM Tape bridge discovers actual eUICC slots, adds UIM capability fields, maps VINYL requests to ISD-R logical-channel APDUs, and restores the original slot mapping. The host model currently fails card-status indication and legacy GetCsn cases. Device eSIM provisioning remains unverified. Other Apple-private QMI requests return unsupported. SAHARA consumes the Apple boot exchange while the modem runs its Qualcomm firmware.
 
 ## Build
 
