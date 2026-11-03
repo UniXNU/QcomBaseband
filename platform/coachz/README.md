@@ -16,6 +16,10 @@ The board packages its Qualcomm modem firmware separately from the Apple Mav16 f
 
 ## Checkpoints
 
-Check modem startup, QRTR services, IPA INIT_DRIVER/INIT_COMPLETE, AppleBaseband publication, ABM boot, QMUX clients, SIM identity, network registration and a data session in that order. Current source reaches SIM recognition. Complete WDA/WDS configuration, QMAP mux association, `pdp_ip` delivery and repeated stop/reset for cellular data. eSIM uses a separate UIM/APDU and VINYL path.
+Check modem startup, QRTR services, IPA INIT_DRIVER/INIT_COMPLETE, AppleBaseband publication, ABM boot, QMUX clients, SIM identity, registration and a data session in that order. The device's factory FSG supplies modem identity and calibration; the reference reads it from the eMMC hardware boot partition and verifies it against the device's stored digest. Firmware packages keep this device-specific input with the board.
+
+`baseband/coachz_bb_data.h` opens the DPM hardware port, negotiates WDA raw IP/QMAPv4 and translates WDS/QOS endpoints from PCIe `{3, 4}` to embedded `{4, 1}`. The activation indication carries service-provisioned and accepted-slot TLVs. Coachz accepts the data-port bindings and registers a valid SIM on LTE roaming with CS/PS attached. The operator and signal bars appear after SIM reinsertion. Cold-boot SIM state, carrier settings, EFS write persistence and `pdp_ip` delivery remain open.
+
+`baseband/coachz_bb_esim.h` connects VINYL Tape to UIM: actual eUICC discovery, capability TLVs, segmented requests/results, ISD-R logical channels and APDUs, timeouts, and original-slot restoration. Host models pass; the real eUICC/RSP session remains unverified.
 
 On another board, supply its DMA ownership, address translations, modem firmware, register generation and transport implementation. Keep the reference class names and channel protocol properties aligned with the selected OS ABI.

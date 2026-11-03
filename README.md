@@ -2,20 +2,22 @@
 
 Qualcomm baseband bridge for XNU and iPadOS, with the SC7180 IPA v4.2 data path.
 
-The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `c5f82b5bc5c73ed55b7f756e6392a99af45c78fb`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) maps each imported file to its source path and hash.
+The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `a22feb7f759b4ab0dcedcf1837c4c4792bffa518`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) maps each imported file to its source path and hash.
 
 ## Implementation
 
 | Directory | Contents |
 | --- | --- |
-| `baseband/` | QMUX/QRTR bridge, QMI CTL, SAHARA device endpoint, AppleBaseband methods and IOKit services. |
+| `baseband/` | QMUX/QRTR, QMI CTL, SAHARA, AppleBaseband services, IPA data-port setup, activation indications and eSIM Tape/UIM. |
 | `ipa/` | IPA v4.2 configuration, GSI, command/RX channels, QMI startup handshake and QMAP framing. |
 | `platform/coachz/` | SC7180 DMA layout, startup/poll wiring and the XNU firmware/service integration patch. |
 | `tests/` | Imported protocol and register models. |
 
-The Coachz implementation runs on iPadOS 17 (21H461). ABM starts, CommCenter exchanges QMI with the modem, the SIM is recognized, and modem firmware appears in About. IPA setup and the QMI initialization handshake complete; modem TX/RX channels start.
+The Coachz implementation runs on iPadOS 17 (21H461). With the device's factory FSG data, About shows IMEI, ICCID and modem firmware. A valid SIM registers on LTE roaming with CS/PS attached. The status bar displays the operator and signal bars after SIM reinsertion; cold-boot SIM state and carrier settings remain open.
 
-The modem's EFS image is empty and it reports no IMEI, including under Linux. CommCenter leaves the SIM disabled. ICCID, network registration and cellular data remain unfinished. The PDP services expose the methods CommCenter expects; `pdp_ip` network-interface delivery and eSIM VINYL are unfinished. Standard QMI services are forwarded; Apple-private QMI services return unsupported. The SAHARA endpoint consumes the Apple boot exchange without loading Apple firmware into the Qualcomm modem.
+The bridge opens the IPA data port through DPM, configures WDA raw IP/QMAPv4, and translates the Apple PCIe endpoint to the modem's embedded endpoint. DPM/WDA setup and WDS/QOS binding succeed on Coachz. Activation indications include service-provisioned and accepted-slot states. `pdp_ip` packet delivery and a working cellular data session remain unfinished; EFS writes currently live in memory until reboot.
+
+The eSIM Tape bridge discovers actual eUICC slots, adds UIM capability fields, maps VINYL requests to ISD-R logical-channel APDUs, and restores the original slot mapping. Host models cover segmentation, timeouts and restoration. Device eSIM provisioning remains unverified. Other Apple-private QMI requests return unsupported. SAHARA consumes the Apple boot exchange while the modem runs its Qualcomm firmware.
 
 ## Build
 
