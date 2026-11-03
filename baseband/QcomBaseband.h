@@ -12,6 +12,9 @@ void coachz_baseband_del_server(uint32_t service, uint32_t node, uint32_t port);
 int coachz_baseband_qrtr(uint32_t dst_port, uint32_t src_node, uint32_t src_port, const void *body, uint32_t size);
 void coachz_baseband_poll(void);
 void coachz_baseband_report(unsigned second);
+/* Implemented by the board data adapter; called on the QRTR/IPA owner thread. */
+int coachz_modem_data_send(uint32_t mux, const uint8_t *ip, uint32_t length);
+void coachz_modem_data_receiver(void (*receiver)(uint32_t mux, const uint8_t *ip, uint32_t length, uint32_t ip_version));
 #ifdef __cplusplus
 }
 #endif
