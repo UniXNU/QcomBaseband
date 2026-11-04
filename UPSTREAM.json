@@ -136,6 +136,16 @@
       "sha256": "b6974dc116865901ad9f31afb0140ed1c9545253f8479bc29478979c49c3f567"
     },
     {
+      "source": "tools/coachz_cellular_compat.py",
+      "path": "platform/coachz/tools/coachz_cellular_compat.py",
+      "sha256": "8858d3a135954d744c13dfdb66334d7e3a324e2ffe5ebe02cc7aeda26e9e709a"
+    },
+    {
+      "source": "tools/xnu_init.py",
+      "path": "platform/coachz/tools/xnu_init.py",
+      "sha256": "cb38f9045389752cc0a94d70891b1af7cbc86627e2413564d0e3ac61e187b355"
+    },
+    {
       "source": "tests/coachz_bb_model_test.c",
       "path": "tests/coachz_bb_model_test.c",
       "sha256": "5ae71c4b320ca2aaf356ad9709e592350cc81ebd8376cf24f54c01b480ba463c"
