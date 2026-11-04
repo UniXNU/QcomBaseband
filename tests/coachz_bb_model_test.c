@@ -453,8 +453,40 @@ static void test_data(void)
           tlvs[33] == 0x43 && tlvs[34] == 8 && !memcmp(tlvs + 36, imsi, 8));
     CHECK(cbd_activation_state(tlvs, sizeof tlvs, iccid, NULL) == CBD_ACTIVATION_TLVS + 13);
     CHECK(!cbd_activation_state(tlvs, CBD_ACTIVATION_SIM_TLVS - 1, iccid, imsi));
+    /* Carrier bundle file push (BSP 0xa000): segment 3 of 9 of file type 9 is answered with success and the next segment, 4. */
+    const uint8_t seg_req[] = { 0, 4, 0, 0x00, 0xa0, 13, 0, 1, 10, 0, 9, 0, 3, 0, 9, 0, 0xde, 0xad, 0xbe, 0xef };
+    struct cbd_file_segment fs;
+    CHECK(cbd_bsp_file_segment(seg_req, sizeof seg_req, &fs) && fs.type == 9 && fs.segment == 3 && fs.count == 9 && fs.bytes == 4);
+    uint8_t seg_tlv[8];
+    const uint32_t segt = cbd_bsp_file_answer(&fs, seg_tlv, sizeof seg_tlv);
+    n = cbq_private_answer(seg_req, CBD_SVC_BSP, 1, 0, seg_tlv, segt, out, sizeof out);
+    const uint8_t seg_ok[] = { 1, 24, 0, 0x80, 0xe2, 1, 2, 4, 0, 0x00, 0xa0, 12, 0, 2, 4, 0, 0, 0, 0, 0, 0x40, 2, 0, 4, 0 };
+    CHECK(n == sizeof seg_ok && !memcmp(out, seg_ok, sizeof seg_ok));
+    /* After the last segment: FileTransferStatus 0xa001 with {type 9, success} and subscription 1. */
+    uint8_t done_tlv[12];
+    const uint32_t dt = cbd_bsp_file_done(&fs, done_tlv, sizeof done_tlv);
+    n = cbq_private_indication(CBD_BSP_FILE_TRANSFER_STATUS, CBD_SVC_BSP, 1, done_tlv, dt, out, sizeof out);
+    const uint8_t done_ind[] = { 1, 21, 0, 0x80, 0xe2, 1, 4, 0, 0, 0x01, 0xa0, 9, 0, 1, 2, 0, 9, 0, 0x10, 1, 0, 1 };
+    CHECK(dt == 9 && n == sizeof done_ind && !memcmp(out, done_ind, sizeof done_ind));
+    /* BSP 0xb001: chip id and serial, little endian, chip id first. */
+    uint8_t chip_tlv[12];
+    CHECK(cbd_bsp_chip_info(0x009540e1u, 0x0c0ac42bu, chip_tlv, sizeof chip_tlv) == 11 && chip_tlv[0] == 1 && chip_tlv[1] == 8 &&
+          chip_tlv[3] == 0xe1 && chip_tlv[5] == 0x95 && chip_tlv[7] == 0x2b && chip_tlv[10] == 0x0c);
+    uint8_t seg_bad[sizeof seg_req]; memcpy(seg_bad, seg_req, sizeof seg_req); seg_bad[12] = 9;   /* segment past the count */
+    CHECK(!cbd_bsp_file_segment(seg_bad, sizeof seg_bad, &fs));
     n = cbq_private_unsupported(act, 0xe5, 2, out, sizeof out);
     CHECK(n == 20 && out[4] == 0xe5 && cbq_rd16(out + 16) == 1 && cbq_rd16(out + 18) == CBQ_ERR_NOT_SUPPORTED);
+    /* Apple's report configuration 0x555b on NAS and WDS is answered here; other messages, services and responses still go to the modem. */
+    const uint8_t freq_req[] = { 0, 7, 0, 0x5b, 0x55, 4, 0, 0xb0, 1, 0, 1 };
+    const uint8_t stats_req[] = { 0, 9, 0, 0x5b, 0x55, 24, 0, 1, 9, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 9, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 };
+    CHECK(cbd_vendor_reporting(CBD_SVC_NAS, freq_req, sizeof freq_req) && cbd_vendor_reporting(CBD_SVC_WDS, stats_req, sizeof stats_req));
+    CHECK(!cbd_vendor_reporting(CBD_SVC_BSP, freq_req, sizeof freq_req) && !cbd_vendor_reporting(CBD_SVC_NAS, freq_req, sizeof freq_req - 1));
+    uint8_t cell_req[sizeof freq_req]; memcpy(cell_req, freq_req, sizeof freq_req); cell_req[3] = 0x56;   /* 0x5556 is not a setting */
+    uint8_t freq_rsp[sizeof freq_req]; memcpy(freq_rsp, freq_req, sizeof freq_req); freq_rsp[0] = 2;
+    CHECK(!cbd_vendor_reporting(CBD_SVC_NAS, cell_req, sizeof cell_req) && !cbd_vendor_reporting(CBD_SVC_NAS, freq_rsp, sizeof freq_rsp));
+    n = cbq_private_answer(freq_req, CBD_SVC_NAS, 3, 0, NULL, 0, out, sizeof out);
+    CHECK(n == 20 && out[4] == CBD_SVC_NAS && out[5] == 3 && out[6] == 2 && cbq_rd16(out + 7) == 7 && cbq_rd16(out + 9) == 0x555b &&
+          cbq_rd16(out + 16) == 0 && cbq_rd16(out + 18) == 0);
     /* Two WDS clients on one mux: only modem success activates each family, and stopping IPv4 preserves IPv6. */
     struct cbp_client calls[2] = { { 0 }, { 0 } };
     uint8_t wire[64], reply[64], v;
@@ -740,7 +772,7 @@ static void test_esim(void)
 }
 
 /* A repeated read-only query is answered from the cache without a slot switch; a command that changes the card clears it. */
-static uint8_t esim_cache[4 * 1024];
+static uint8_t esim_cache[CBE_CACHE_ENTRIES * 1024];
 static void esim_drain(void)
 {
     uint8_t out[2048], channel = 0;
@@ -764,10 +796,28 @@ static void test_esim_cache(void)
     CHECK(esim.step == CBE_S_IDLE && !esim.freeze && !esim.req_len && esim.switches == switches);
     CHECK(esim.done_pending && esim.done_len == sizeof answer && esim.done_sw1 == 0x90 && !memcmp(esim.resp, answer, sizeof answer));
     esim_drain();
+    /* ListNotification is read-only. Alternating it with GetProfilesInfo must not evict the profiles answer
+     * and switch away from the physical SIM again on every initialization pass. */
+    const uint8_t notifications[] = { 0xbf, 0x28, 0 }, empty_notifications[] = { 0xbf, 0x28, 2, 0xa0, 0 };
+    CHECK(cbe_cacheable(notifications, sizeof notifications));
+    esim_tape_command(7, 10, notifications, sizeof notifications, 1, 0, 20002); esim_open();
+    esim_apdu_response(6007, empty_notifications, sizeof empty_notifications, 0x90, 0);
+    esim_restore(6008); esim_drain();
+    const uint32_t after_notifications = esim.switches;
+    esim_tape_command(13, 11, query, sizeof query, 1, 0, 40000);
+    cbe_tick(&esim, 40001);
+    CHECK(esim.step == CBE_S_IDLE && !esim.req_len && esim.switches == after_notifications);
+    CHECK(esim.done_pending && esim.done_len == sizeof answer && !memcmp(esim.resp, answer, sizeof answer));
+    esim_drain();
+    esim_tape_command(7, 12, notifications, sizeof notifications, 1, 0, 40002);
+    cbe_tick(&esim, 40003);
+    CHECK(esim.step == CBE_S_IDLE && !esim.req_len && esim.switches == after_notifications);
+    CHECK(esim.done_pending && esim.done_len == sizeof empty_notifications && !memcmp(esim.resp, empty_notifications, sizeof empty_notifications));
+    esim_drain();
     esim_tape_command(CBE_TAPE_DELETE, 9, del, sizeof del, 1, 0, 20002); esim_open();
     esim_apdu_response(6007, NULL, 0, 0x90, 0);
     esim_restore(6008);
-    CHECK(!esim.cached[0].used);
+    for (unsigned i = 0; i < CBE_CACHE_ENTRIES; i++) CHECK(!esim.cached[i].used);
     if (!failures) printf("PASS esim read-only query cache\n");
 }
 
