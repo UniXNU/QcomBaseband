@@ -2,7 +2,7 @@
 
 Qualcomm baseband bridge for XNU and iOS, with the SC7180 IPA v4.2 data path.
 
-The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `c6794008f0362df9c5e41cf5078c7044b36951b7`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) records source paths, original hashes and local compatibility patches.
+The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba233))**. It is extracted from [Trogdor-ipadOS](https://github.com/chiba233/Trogdor-ipadOS) at `58b5bc8bfc04482014ff403078435e581e58a5b0`. Original commits, authors and the BSD-2-Clause license are retained. [UPSTREAM.json](UPSTREAM.json) records source paths, original hashes and local compatibility patches.
 
 ## Implementation
 
@@ -13,7 +13,7 @@ The implementation is by **HoshinoYumeka ([@chiba233](https://github.com/chiba23
 | `platform/coachz/` | SC7180 DMA layout, startup/poll wiring and the XNU firmware/service integration patch. |
 | `tests/` | Imported protocol and register models. |
 
-The Coachz implementation runs on iOS 17 (21H461). With the device's factory FSG data, About shows IMEI, ICCID and modem firmware. A valid SIM registers on LTE roaming with CS/PS attached. The status bar displays the operator and signal bars directly after a cold boot. Each ABM channel buffers up to 1,024 frames; the first 32 drops per channel report queue depth and message headers. The bridge reads ICCID and IMSI from the card and publishes them in reading-order BCD in the activation indication. The SIM matches its carrier bundle, LTE is shown and cellular data send/receive works.
+The Coachz implementation runs on iOS 17 (21H461). With the device's factory FSG data, About shows IMEI, ICCID and modem firmware. A valid SIM registers on LTE roaming with CS/PS attached. The status bar displays the operator and signal bars directly after a cold boot. Each ABM channel buffers up to 1,024 frames; the first 32 drops per channel report queue depth and message headers. The bridge reads ICCID and IMSI from the card and publishes them in reading-order BCD in the activation indication. The SIM matches its carrier bundle and LTE is shown. The carrier bundle's PRI/GRI segments are acknowledged and discarded, followed by FileTransferStatus `0xa001`, so CommCenter caches the configuration and stops resetting the baseband. BSP `0xb001` returns the chip ID and serial reported over BHI. Cellular IPv4 web loading works, including after PDP reconnects; IPv6 data, APN editing and long sessions are pending.
 
 The bridge opens the IPA data port through DPM, configures WDA raw IP/QMAPv4, and translates the Apple PCIe endpoint to the modem's embedded endpoint. DPM/WDA setup and WDS/QOS binding succeed on Coachz. Activation indications include service-provisioned, accepted-slot, ICCID and IMSI fields. The raw-IP interfaces `pdp_ip0` through `pdp_ip3` map to QMAP muxes 1 through 4 with MTU 1492. WDS replies control each IPv4/IPv6 family independently; the IPA owner thread sends and receives packets. EFS writes currently live in memory until reboot.
 
