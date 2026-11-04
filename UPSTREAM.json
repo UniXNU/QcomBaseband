@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/chiba233/Trogdor-ipadOS",
-  "revision": "c6794008f0362df9c5e41cf5078c7044b36951b7",
+  "revision": "58b5bc8bfc04482014ff403078435e581e58a5b0",
   "author": "HoshinoYumeka (@chiba233)",
   "license": "BSD-2-Clause",
   "files": [
@@ -12,17 +12,17 @@
     {
       "source": "platform/coachz-prelink/drivers/RamBlock/coachz_modem.c",
       "path": "platform/coachz/coachz_modem.c",
-      "sha256": "dd59ff41ac01a1eb9a91d1b8fcf1f9f8cd231c2a035532db6309066493a5c6f6"
+      "sha256": "cc8b626975c948b28e07dffada567deed8ce4edabcdf0f52c9d350be30db154b"
     },
     {
       "source": "platform/coachz-prelink/patches/xnu/coachz-prelink-baseband.patch",
       "path": "platform/coachz/patches/coachz-prelink-baseband.patch",
-      "sha256": "7689f89f42b0555fbc3f53a8e422b9f9f11dbc64965d6e39f6cb8d7c016aab60"
+      "sha256": "a52435388534a2d7b54f4eb9786d14a59c2911d839928af8af36a9b971d5fe7a"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_baseband.cpp",
       "path": "baseband/coachz_baseband.cpp",
-      "sha256": "a2bb8420f402d6696963e03e3899781b507185b9c1b8dfa4ff73e08c27050cbb"
+      "sha256": "f49e81794bbf46ae126cfbf3f5d4cf4992334bbcc61857c483f8d5553ab47486"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_channels.h",
@@ -37,18 +37,18 @@
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_data.h",
       "path": "baseband/coachz_bb_data.h",
-      "sha256": "77bb0565600750f5f8c9fe1749eaa868c7b0ed679e2d97854ebe7f1467a23d7d"
+      "sha256": "1ddcb9b92450311392ff59dbd15beb7135825757099a6fedd6ab7ddc120cb2d7"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_esim.h",
       "path": "baseband/coachz_bb_esim.h",
-      "sha256": "30d103ffded0d055babe1121149ebf43861f38954539dee6e5c79891d1e37e42"
+      "sha256": "ab47cedfee356fc630d3914258226fd378df8f57876949170cef9bc5b5c7baf1"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_pdp.cpp",
       "path": "baseband/coachz_bb_pdp.cpp",
-      "sha256": "1f750926e426e70bb2d2a2dbb5f4cfbc977fd6417bbeb28adbdd4810c1ac39af",
-      "patched_sha256": "5e502f006322a9de8bfef37b89d7f37dc3fc0060059d7bbb2a2bc2fcc0cabf41"
+      "sha256": "0bff14f9efc376d856cc5677f97e8526b27e2edcf6eb2f8d8474789a357b9efa",
+      "patched_sha256": "e9cc3fd1fb1f75b5f6f1901c4ccc45dc163e865d551ad3640ac06f2c41d00b49"
     },
     {
       "source": "platform/coachz-prelink/pending/baseband/coachz_bb_pdp.h",
@@ -138,7 +138,7 @@
     {
       "source": "tests/coachz_bb_model_test.c",
       "path": "tests/coachz_bb_model_test.c",
-      "sha256": "c9ef66e175cb0d6ddd19197528bb710e78bb941088b0e8b9e6490a7b3f404b7a"
+      "sha256": "5ae71c4b320ca2aaf356ad9709e592350cc81ebd8376cf24f54c01b480ba463c"
     },
     {
       "source": "tests/coachz_gsi_model_test.c",
