@@ -26,4 +26,23 @@ Check modem startup, QRTR services, IPA INIT_DRIVER/INIT_COMPLETE, AppleBaseband
 
 The eSIM bridge caches four read-only ES10 responses and clears them after state-changing card commands. Repeated cached queries keep the physical SIM mapping unchanged.
 
+## CommCenter compatibility copy
+
+The pinned CommCenter (iPadOS 17.7.11 / 21H461) blocks the Internet context while Apple's postponement ticket is absent. `tools/coachz_cellular_compat.py` takes the original binary from that OS, checks its SHA-256 and Mach-O UUID, rewrites one conditional branch, re-signs it ad hoc with the original entitlements and writes a matching trust cache. WDS activation, address queries and network results keep the original logic.
+
+```sh
+python3 platform/coachz/tools/coachz_cellular_compat.py --commcenter ORIGINAL_COMM_CENTER --output OUT_DIR
+```
+
+`OUT_DIR` receives `CommCenter`, `CommCenter.zlib` and `trustcache.bin`. `--compact` uses `zopfli` for a smaller zlib stream. The tool needs macOS `codesign` and `tools/xnu_init.py` from the same directory.
+
+The board packaging consumes the outputs in four places:
+
+1. The firmware archive (`CZBBFW01`) carries the signed copy as `compat/CommCenter` with mode `0755`.
+2. The ADT carries its SHA-256 as `/chosen/coachz-cellular-compat-sha256`.
+3. The kernel's trust cache set includes `trustcache.bin`, which holds the copy's cdhash.
+4. At boot the kernel compares the archive entry with the ADT digest, installs it under `/private/var/coachz/baseband/Mav16/compat` and bindfs-mounts that directory over CoreTelephony's `Support` directory. The OS volume stays read-only.
+
+The original system binary, the signed copy and the trust cache stay outside Git.
+
 On another board, supply its DMA ownership, address translations, modem firmware, register generation and transport implementation. Keep the reference class names and channel protocol properties aligned with the selected OS ABI.
