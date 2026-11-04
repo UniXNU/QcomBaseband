@@ -135,9 +135,10 @@ static void bb_init(void)
   bb_esim_resp = static_cast<uint8_t *>(IOMallocData(BB_ESIM_BYTES));
   cbe_init(&bb_esim, bb_esim_in, bb_esim_in ? BB_ESIM_BYTES : 0,
            bb_esim_resp, bb_esim_resp ? BB_ESIM_BYTES : 0);
-  // Read-only eUICC answers (coachz_bb_esim.h): 16 KiB for each of the four entries.
-  uint8_t *cache = static_cast<uint8_t *>(IOMallocData(4u * 16384u));
-  cbe_set_cache(&bb_esim, cache, cache ? 4u * 16384u : 0);
+  // Read-only eUICC answers (coachz_bb_esim.h): preserve 16 KiB per entry.
+  const uint32_t cache_bytes = CBE_CACHE_ENTRIES * 16384u;
+  uint8_t *cache = static_cast<uint8_t *>(IOMallocData(cache_bytes));
+  cbe_set_cache(&bb_esim, cache, cache ? cache_bytes : 0);
   cbc_init(&bb_control);
   cbs_init(&bb_sahara, bb_sahara_images, sizeof bb_sahara_images / sizeof bb_sahara_images[0], 0x10000);
 }
@@ -301,6 +302,18 @@ static void bb_pdp_note(uint32_t local_port, uint32_t cid, uint32_t channel, con
     printf("COACHZ pdp: WDS type %u message 0x%x txn %u mux %u family %u active %u error %u address-fields %u\n",
       sdu[0], cbd_rd16(sdu + 3), cbd_rd16(sdu + 1), c.mux, c.family, c.active,
       sdu[0] == 2 ? cbd_error(sdu, n) : 0, c.settings);
+  const bool start_failed = sdu[0] == 2 && cbd_rd16(sdu + 3) == CBP_START && cbd_error(sdu, n);
+  if (start_failed || (sdu[0] == 4 && cbd_rd16(sdu + 3) == CBP_STATUS && !c.active)) {
+    // libqmi WDS 0x20 responses and 0x22 indications use the same call-end TLVs.
+    uint32_t reason_size = 0, verbose_size = 0;
+    const uint8_t *reason = cbd_find(sdu, n, 0x10, &reason_size);
+    const uint8_t *verbose = cbd_find(sdu, n, 0x11, &verbose_size);
+    printf("COACHZ pdp: %s cid %u channel %u mux %u family %u reason-present %u reason %u verbose-present %u type %u code %d\n",
+      start_failed ? "start failed" : "disconnected", cid, channel, c.mux, c.family, reason && reason_size == 2u,
+      reason && reason_size == 2u ? cbd_rd16(reason) : 0u, verbose && verbose_size == 4u,
+      verbose && verbose_size == 4u ? cbd_rd16(verbose) : 0u,
+      verbose && verbose_size == 4u ? static_cast<int16_t>(cbd_rd16(verbose + 2)) : 0);
+  }
 }
 
 static void bb_sim_request(const struct cbq_result &r, const uint8_t *sdu);
@@ -451,6 +464,37 @@ static int bb_private_answer(uint32_t channel, const struct cbq_result &r, const
     if (n != CBE_DEFERRED) bb_push(channel, bb_out, n);
     return 1;
   }
+  // Carrier bundle files (coachz_bb_data.h): accepted and dropped, each segment acknowledged with the next segment number.
+  if (r.service == CBD_SVC_BSP && message == CBD_BSP_SEND_FILE) {
+    struct cbd_file_segment f;
+    if (!cbd_bsp_file_segment(sdu, r.len, &f)) return 0;
+    uint8_t tlvs[8];
+    const uint32_t t = cbd_bsp_file_answer(&f, tlvs, sizeof tlvs);
+    const uint32_t n = cbq_private_answer(sdu, r.service, r.cid, 0, tlvs, t, bb_out, sizeof bb_out);
+    if (n) bb_push(channel, bb_out, n);
+    if (f.segment + 1u == f.count) {
+      // The file is complete: report it received as an Apple modem does (FileTransferStatus), or CommCenter times out after 22 s.
+      uint8_t done[12];
+      const uint32_t d = cbd_bsp_file_done(&f, done, sizeof done);
+      const uint32_t m = cbq_private_indication(CBD_BSP_FILE_TRANSFER_STATUS, r.service, r.cid, done, d, bb_out, sizeof bb_out);
+      if (m) bb_push(channel, bb_out, m);
+      printf("COACHZ baseband: carrier file type %u taken (%u segments, last %u bytes), dropped, transfer status sent\n", f.type, f.count, f.bytes);
+    }
+    return 1;
+  }
+  if (r.service == CBD_SVC_BSP && message == CBD_BSP_CHIP_INFO) {
+    uint8_t tlvs[12];
+    const uint32_t t = cbd_bsp_chip_info(CBS_CHIP_ID, CBS_SERIAL, tlvs, sizeof tlvs);
+    const uint32_t n = cbq_private_answer(sdu, r.service, r.cid, 0, tlvs, t, bb_out, sizeof bb_out);
+    if (n) bb_push(channel, bb_out, n);
+    return 1;
+  }
+  if (r.service == CBD_SVC_BSP && message == CBD_BSP_SET_CONFIG) {
+    const uint32_t n = cbq_private_answer(sdu, r.service, r.cid, 0, nullptr, 0, bb_out, sizeof bb_out);
+    if (n) bb_push(channel, bb_out, n);
+    printf("COACHZ baseband: baseband config (SetConfig) taken\n");
+    return 1;
+  }
   if (r.service == CBD_SVC_BSP && message == CBD_BSP_ACTIVATION_REGISTER) {
     const uint32_t n = cbq_private_answer(sdu, r.service, r.cid, 0, 0, 0, bb_out, sizeof bb_out);
     if (n) bb_push(channel, bb_out, n);
@@ -503,6 +547,12 @@ static void bb_host_write(uint32_t channel, const uint8_t *data, uint32_t len)
     }
     break;
   case CBQ_TO_MODEM:
+    // Apple's report configuration this modem's firmware does not know (coachz_bb_data.h): accepted here, not forwarded.
+    if (cbd_vendor_reporting(r.service, data + CBQ_HDR, r.len)) {
+      const uint32_t n = cbq_private_answer(data + CBQ_HDR, r.service, r.cid, 0, nullptr, 0, bb_out, sizeof bb_out);
+      if (n) bb_push(channel, bb_out, n);
+      break;
+    }
     bb_to_modem(r, data + CBQ_HDR);
     break;
   case CBQ_PRIVATE: {
@@ -1021,6 +1071,15 @@ public:
   IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *args, IOExternalMethodDispatch *, OSObject *, void *) override
   {
     if (!args) return kIOReturnBadArgument;
+    // Capture the first call shape for each helper operation, including the traffic gate.
+    // Payloads can contain network identities. Record only sizes and counts.
+    static uint32_t shapes_seen;
+    if (selector < 32 && !(__atomic_fetch_or(&shapes_seen, 1u << selector, __ATOMIC_RELAXED) & (1u << selector)))
+      printf("COACHZ pdp: appender selector %u scalar-in %u scalar-out %u struct-in %llu struct-out %llu descriptor-in %llu descriptor-out %llu\n",
+        selector, args->scalarInputCount, args->scalarOutputCount,
+        static_cast<unsigned long long>(args->structureInputSize), static_cast<unsigned long long>(args->structureOutputSize),
+        static_cast<unsigned long long>(args->structureInputDescriptor ? args->structureInputDescriptor->getLength() : 0),
+        static_cast<unsigned long long>(args->structureOutputDescriptor ? args->structureOutputDescriptor->getLength() : 0));
     if (selector == 16) {
       if (args->scalarInputCount != 2) return kIOReturnBadArgument;
       return bb_pdp_block(static_cast<uint32_t>(args->scalarInput[0]), static_cast<uint32_t>(args->scalarInput[1]));

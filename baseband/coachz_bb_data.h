@@ -287,6 +287,67 @@ static inline uint32_t cbd_activation_state(uint8_t *tlvs, uint32_t room, const 
     return w;
 }
 
+/* After a carrier bundle change CommCenter (QMIBasebandSettingsDriver) pushes the bundle's files: BSP 0xa000, one 1024-byte segment
+ * per request, TLV 0x01 {u16 file type, u16 segment, u16 segment count, data}; then SetConfig 0xe00d (TLV 0x10, one byte) for the IMSI
+ * switch and multi-PDN settings. Each segment's answer must carry TLV 0x40 ExpectedSegmentInfo, the next segment number (u16): it is
+ * compared with the one sendSegmentWithData_sync expects ("Next segment numbers are not matching"), and the last segment ends the file.
+ * Unsupported answers made CommCenter leave the configuration uncached, so every boot it pushed, reset the baseband to apply it and
+ * pushed again, about every 12 seconds. These files are Apple's Mav16 carrier configuration; this modem has its own, so the bridge
+ * takes them as an Apple modem would and drops them, as it drops the images sahara sends. */
+#define CBD_BSP_SEND_FILE 0xa000u
+#define CBD_BSP_SET_CONFIG 0xe00du
+struct cbd_file_segment { uint16_t type, segment, count; uint32_t bytes; };
+static inline int cbd_bsp_file_segment(const uint8_t *sdu, uint32_t n, struct cbd_file_segment *f)
+{
+    uint32_t len = 0;
+    if (!cbd_sdu_ok(sdu, n) || sdu[0] != 0u || cbd_rd16(sdu + 3) != CBD_BSP_SEND_FILE) return 0;
+    const uint8_t *v = cbd_find(sdu, n, 0x01, &len);
+    if (!v || len < 6u) return 0;
+    f->type = cbd_rd16(v); f->segment = cbd_rd16(v + 2); f->count = cbd_rd16(v + 4); f->bytes = len - 6u;
+    return f->count && f->segment < f->count;
+}
+/* When a file's last segment is answered CommCenter logs "complete, waiting for indication from baseband" and waits 22 seconds for
+ * FileTransferStatus, BSP indication 0xa001 (QMIBasebandSettingsDriver::bootstrap): TLV 0x01 {u8 QMIFileType, the type the segments
+ * carried; u8 QMIFileTransferResult, 0 success}, TLV 0x10 SubscriptionID (one byte, 1 for slot one, as the BSP requests carry it).
+ * Without it the push times out as failed and the configuration is not cached. */
+#define CBD_BSP_FILE_TRANSFER_STATUS 0xa001u
+static inline uint32_t cbd_bsp_file_done(const struct cbd_file_segment *f, uint8_t *tlvs, uint32_t room)
+{
+    const uint8_t status[2] = { (uint8_t)f->type, 0 }, subscription = 1;
+    if (room < 9u) return 0;
+    uint32_t w = cbd_tlv(tlvs, room, 0x01, status, 2);
+    w += cbd_tlv(tlvs + w, room - w, 0x10, &subscription, 1);
+    return w;
+}
+/* The TLVs of a segment's successful answer: the next segment number. */
+static inline uint32_t cbd_bsp_file_answer(const struct cbd_file_segment *f, uint8_t *tlvs, uint32_t room)
+{
+    uint8_t next[2] = { (uint8_t)(f->segment + 1u), (uint8_t)((f->segment + 1u) >> 8) };
+    return room >= 5u ? cbd_tlv(tlvs, room, 0x40, next, 2) : 0;
+}
+
+/* Apple's Mav16 firmware adds vendor messages to the standard services, and this modem's firmware answers them QMI_ERR_INVALID_QMI_CMD.
+ * Message 0x555b on NAS (frequency reporting mode, TLV 0xb0 of one byte) and on WDS (link statistics, TLVs 0x01 and 0x10 of nine bytes)
+ * only configure reports: CommCenter logs "Could not set frequency reporting mode" and ABM "Failed to Setting link stats" when they fail.
+ * The bridge accepts both without action, as it takes the carrier files; no reports follow. */
+#define CBD_SVC_NAS 0x03u
+#define CBD_VENDOR_REPORTING 0x555bu
+static inline int cbd_vendor_reporting(uint32_t service, const uint8_t *sdu, uint32_t n)
+{
+    return (service == CBD_SVC_NAS || service == CBD_SVC_WDS) && cbd_sdu_ok(sdu, n) && sdu[0] == 0u && cbd_rd16(sdu + 3) == CBD_VENDOR_REPORTING;
+}
+
+/* BSP 0xb001 (queryActivationStatus): TLV 0x01 ChipInformation {u32 chip id, u32 serial number}. CommCenter puts both in the activation
+ * postponement info (kCTPostponementInfoBasebandChipID, ...BasebandSerialNumber) and ABM publishes them; unanswered it logs "Unable to
+ * get chip id and serial number" on every query. The bridge answers the same two values BBUpdater already read over BHI and sahara. */
+#define CBD_BSP_CHIP_INFO 0xb001u
+static inline uint32_t cbd_bsp_chip_info(uint32_t chip, uint32_t serial, uint8_t *tlvs, uint32_t room)
+{
+    const uint8_t v[8] = { (uint8_t)chip, (uint8_t)(chip >> 8), (uint8_t)(chip >> 16), (uint8_t)(chip >> 24),
+                           (uint8_t)serial, (uint8_t)(serial >> 8), (uint8_t)(serial >> 16), (uint8_t)(serial >> 24) };
+    return room >= 11u ? cbd_tlv(tlvs, room, 0x01, v, 8) : 0;
+}
+
 /* CommCenter reads EF_ICCID and EF_IMSI itself: UIM Read Transparent (0x20), TLV 0x02 {u16 file id, u8 path length, path}. The answer
  * carries TLV 0x11 {u16 content length, content} (libqmi qmi-service-uim.json). Files are stored as on the card (TS 31.102). */
 #define CBD_SVC_UIM 0x0bu
